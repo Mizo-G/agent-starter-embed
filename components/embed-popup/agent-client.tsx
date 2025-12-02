@@ -12,20 +12,17 @@ import { type AppConfig, EmbedErrorDetails } from '@/lib/types';
 
 const PopupViewMotion = motion.create(PopupView);
 
-const sendData = async (room: any) => {
-  if (room.state !== "connected") {
+const sendData = async (room: Room) => {
+  if (room.state !== 'connected') {
     return;
   }
 
   // send payload to agent
-  const agent: any = Array.from(room.remoteParticipants.values()).find(
-    (p: any) => p.isAgent
-  );
+  const agent = Array.from(room.remoteParticipants.values()).find((p) => p.isAgent);
 
-  const retryCount = 0
-  const maxRetries = 3
-  const retryDelay = 2000
-  const rpcTimeout = 10000
+  const retryCount = 0;
+  const maxRetries = 3;
+  const retryDelay = 2000;
   const actualRetryDelay = retryDelay * (retryCount + 1); // Exponential backoff
 
   if (!agent) {
@@ -37,9 +34,9 @@ const sendData = async (room: any) => {
       return sendData(room);
     } else {
       console.warn(
-        "[DOM ELEMENTS RPC] Agent not found in remote participants after",
+        '[DOM ELEMENTS RPC] Agent not found in remote participants after',
         maxRetries,
-        "retries"
+        'retries'
       );
       return;
     }
@@ -49,13 +46,13 @@ const sendData = async (room: any) => {
     const response = await room.localParticipant.performRpc({
       destinationIdentity: agent.identity,
       method: 'dom_elements',
-      payload: JSON.stringify({ message: "important data!" }),
+      payload: JSON.stringify({ message: 'important data!' }),
     });
     console.log('RPC response:', response);
   } catch (error) {
     console.error('RPC call failed:', error);
   }
-}
+};
 
 export type EmbedFixedAgentClientProps = {
   appConfig: AppConfig;
@@ -122,11 +119,10 @@ function AgentClient({ appConfig }: EmbedFixedAgentClientProps) {
     }
 
     room.unregisterRpcMethod('client.greet');
-    room.registerRpcMethod('client.greet',
-      async (data: any) => {
-        console.log(`Received greeting from ${data.callerIdentity}: ${data.payload}`);
-        return `Hello, ${data.callerIdentity}!`;
-      })
+    room.registerRpcMethod('client.greet', async (data) => {
+      console.log(`Received greeting from ${data.callerIdentity}: ${data.payload}`);
+      return `Hello, ${data.callerIdentity}!`;
+    });
 
     if (room.state !== 'disconnected') {
       return;
@@ -143,12 +139,11 @@ function AgentClient({ appConfig }: EmbedFixedAgentClientProps) {
           ),
         ]);
 
-        console.log("Successfully connected to room");
+        console.log('Successfully connected to room');
 
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
         await sendData(room);
-
       } catch (error) {
         if (error instanceof Error) {
           console.error('Error connecting to agent:', error);
