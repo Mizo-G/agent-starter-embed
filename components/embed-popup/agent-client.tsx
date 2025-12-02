@@ -12,6 +12,51 @@ import { type AppConfig, EmbedErrorDetails } from '@/lib/types';
 
 const PopupViewMotion = motion.create(PopupView);
 
+const sendData = async (room: any) => {
+  if (room.state !== "connected") {
+    return;
+  }
+
+  // send payload to agent
+  const agent: any = Array.from(room.remoteParticipants.values()).find(
+    (p: any) => p.isAgent
+  );
+
+  const retryCount = 0
+  const maxRetries = 3
+  const retryDelay = 2000
+  const rpcTimeout = 10000
+  const actualRetryDelay = retryDelay * (retryCount + 1); // Exponential backoff
+
+  if (!agent) {
+    if (retryCount < maxRetries) {
+      console.log(
+        `[DOM ELEMENTS RPC] Agent not found yet, retrying in ${actualRetryDelay / 1000}s (attempt ${retryCount + 1}/${maxRetries})`
+      );
+      await new Promise((resolve) => setTimeout(resolve, actualRetryDelay));
+      return sendData(room);
+    } else {
+      console.warn(
+        "[DOM ELEMENTS RPC] Agent not found in remote participants after",
+        maxRetries,
+        "retries"
+      );
+      return;
+    }
+  }
+
+  try {
+    const response = await room.localParticipant.performRpc({
+      destinationIdentity: agent.identity,
+      method: 'dom_elements',
+      payload: JSON.stringify({ message: "important data!" }),
+    });
+    console.log('RPC response:', response);
+  } catch (error) {
+    console.error('RPC call failed:', error);
+  }
+}
+
 export type EmbedFixedAgentClientProps = {
   appConfig: AppConfig;
 };
@@ -78,7 +123,7 @@ function AgentClient({ appConfig }: EmbedFixedAgentClientProps) {
 
     room.unregisterRpcMethod('client.greet');
     room.registerRpcMethod('client.greet',
-      async (data) => {
+      async (data: any) => {
         console.log(`Received greeting from ${data.callerIdentity}: ${data.payload}`);
         return `Hello, ${data.callerIdentity}!`;
       })
@@ -88,14 +133,23 @@ function AgentClient({ appConfig }: EmbedFixedAgentClientProps) {
     }
 
     const connect = async () => {
-      Promise.all([
-        room.localParticipant.setMicrophoneEnabled(true, undefined, {
-          preConnectBuffer: appConfig.isPreConnectBufferEnabled,
-        }),
-        existingOrRefreshConnectionDetails().then((connectionDetails) =>
-          room.connect(connectionDetails.serverUrl, connectionDetails.participantToken)
-        ),
-      ]).catch((error) => {
+      try {
+        await Promise.all([
+          room.localParticipant.setMicrophoneEnabled(true, undefined, {
+            preConnectBuffer: appConfig.isPreConnectBufferEnabled,
+          }),
+          existingOrRefreshConnectionDetails().then((connectionDetails) =>
+            room.connect(connectionDetails.serverUrl, connectionDetails.participantToken)
+          ),
+        ]);
+
+        console.log("Successfully connected to room");
+
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        await sendData(room);
+
+      } catch (error) {
         if (error instanceof Error) {
           console.error('Error connecting to agent:', error);
           setError({
@@ -103,9 +157,8 @@ function AgentClient({ appConfig }: EmbedFixedAgentClientProps) {
             description: `${error.name}: ${error.message}`,
           });
         }
-      });
+      }
     };
-
     connect();
   }, [
     room,
