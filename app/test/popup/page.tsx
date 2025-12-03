@@ -32,6 +32,9 @@ export default function Page() {
       popupWrapper.classList.toggle('dark');
     }
   }
+  function handleButtonClick() {
+    console.log('clicked');
+  }
 
   return (
     <div>
@@ -51,6 +54,11 @@ export default function Page() {
 
       <p>
         <button onClick={handleToggleTheme}>toggle theme</button>
+      </p>
+      <p>
+        <button onClick={handleButtonClick} data-js-id="1">
+          click me!
+        </button>
       </p>
       {sandboxId && <Script src="/embed-popup.js" data-lk-sandbox-id={sandboxId} />}
     </div>
